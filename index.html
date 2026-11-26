@@ -1,0 +1,450 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>逻辑填空 · 词条检索</title>
+<style>
+:root{--bg:#0e1116;--panel:#151a21;--line:#242c36;--fg:#e6e9ee;--sub:#9aa4b2;--acc:#4c8dff;--ok:#2ea043;--warn:#d29922;--bad:#f85149;--purple:#a371f7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.65 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:22px 18px 80px}
+h1{font-size:19px;margin:0 0 4px}
+.sub{color:var(--sub);font-size:12px;margin-bottom:16px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line)}
+input[type=text]{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:10px 12px;border-radius:8px;font-size:14px;outline:none}
+input[type=text]:focus{border-color:var(--acc)}
+select,button{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:10px 12px;border-radius:8px;font-size:13px;cursor:pointer}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0}
+.card h3{margin:0 0 10px;font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{background:#1d2530;border:1px solid var(--line);border-radius:20px;padding:2px 9px;font-size:12px;color:var(--sub)}
+.wlink{color:var(--acc);text-decoration:none;border-bottom:1px dashed rgba(90,150,255,.5);cursor:pointer;transition:.1s}
+.wlink:hover{background:rgba(90,150,255,.15);border-bottom-color:var(--acc);border-radius:3px}
+.chip .wlink{color:inherit;border-bottom:1px dotted var(--line)}
+.chip .wlink:hover{color:var(--acc);border-bottom-color:var(--acc);background:transparent}
+.chip b{color:var(--fg);font-weight:600}
+.chip.click{cursor:pointer;transition:.12s}
+.chip.click:hover{border-color:var(--acc);color:var(--fg)}
+.chip.active{border-color:var(--acc);background:#16233a;color:#fff}
+.banner{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#16233a;border:1px solid var(--acc);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:12.5px}
+.banner button{background:#1d2530;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
+.b-senti{font-size:11px;border-radius:4px;padding:1px 6px;border:1px solid var(--line);color:var(--sub)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.stat{background:#131922;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.scene{background:#131922;border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0}
+.scene .head{font-weight:700;font-size:15px;margin-bottom:10px}
+.scene .row{margin:7px 0;font-size:13px}
+.scene .lab{color:var(--sub);display:inline-block;min-width:66px;font-size:12px;vertical-align:top}
+.ex{border-left:2px solid var(--line);padding-left:9px;margin:6px 0;color:#c9d1db;font-size:12.5px}
+.ex.bad{border-left-color:var(--bad)}
+.ex .src{color:var(--sub);font-size:11px;display:block;margin-top:2px}
+.q{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0;background:#121720}
+.q .meta{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--sub);margin-bottom:8px;align-items:center}
+.badge{font-size:11px;border-radius:4px;padding:1px 6px;border:1px solid}
+.b-correct{color:var(--ok);border-color:var(--ok)}
+.b-distractor{color:var(--warn);border-color:var(--warn)}
+.b-stem{color:var(--acc);border-color:var(--acc)}
+.b-material{color:var(--purple);border-color:var(--purple)}
+.b-analysis{color:var(--sub);border-color:var(--line)}
+.q .content{white-space:pre-wrap;margin-bottom:8px}
+.opts{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.opts li{padding:5px 9px;border-radius:6px;border:1px solid transparent}
+.opts li.hit{background:#1b2431;border-color:#2c3a4d}
+.opts li.right{background:#12301b;border-color:var(--ok)}
+.opts .k{color:var(--sub);display:inline-block;width:18px}
+.onote{display:block;color:var(--sub);font-size:11.5px;margin:2px 0 0 18px;line-height:1.5}
+.ana{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px;color:var(--sub);font-size:12.5px}
+mark{background:#7a5c00;color:#fff;border-radius:2px;padding:0 1px}
+.empty{color:var(--sub);text-align:center;padding:40px 0}
+details summary{cursor:pointer;color:var(--sub);font-size:12px}
+.tabs{display:flex;gap:6px;margin:12px 0 4px;flex-wrap:wrap}
+.tab{padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--sub);font-size:12px;cursor:pointer}
+.tab.on{color:#fff;border-color:var(--acc);background:#16233a}
+.note{color:var(--sub);font-size:11.5px;margin-top:8px}
+.cmpwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:4px}
+.cmp{border-collapse:collapse;width:100%;min-width:640px;font-size:12.5px}
+.cmp th,.cmp td{border:1px solid var(--line);padding:7px 9px;vertical-align:top;text-align:left}
+.cmp th{background:#131922;color:var(--sub);font-weight:600;white-space:nowrap}
+.cmp td:first-child{font-weight:700;white-space:nowrap}
+.cmp .muted{color:var(--sub)}
+.cmp .tagc{font-size:11px;border-radius:4px;padding:1px 6px;border:1px solid var(--line);display:inline-block;margin-bottom:3px}
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:10px}
+.wcard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;transition:.12s}
+.wcard:hover{border-color:var(--acc);transform:translateY(-1px)}
+.wcard .w{font-size:17px;font-weight:700;padding-right:22px}
+.wcard .wmeta{color:var(--sub);font-size:12px;margin:5px 0 8px}
+.wcard .wmeta b{color:var(--fg)}
+.wchips{display:flex;gap:5px;flex-wrap:wrap;min-height:22px}
+.wchips .chip{font-size:11.5px}
+.wfoot{display:flex;justify-content:space-between;gap:8px;color:var(--sub);font-size:11px;margin-top:9px;border-top:1px dashed var(--line);padding-top:7px}
+.wdel{position:absolute;top:6px;right:6px;background:transparent;border:none;color:var(--sub);font-size:17px;line-height:1;padding:4px 7px;border-radius:6px;cursor:pointer}
+.wdel:hover{color:var(--bad);background:#241a1a}
+.backbar{margin:12px 0 0}
+.backbar button{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer}
+.backbar button:hover{border-color:var(--acc)}
+#viewTabs{margin:10px 0 0}
+#viewTabs .tab b{color:var(--acc);margin-left:3px}
+@media (max-width:560px){
+  .wgrid{grid-template-columns:1fr}
+  .wcard{padding:11px 13px}
+  .wcard .w{font-size:16px}
+}
+@media (max-width:560px){
+  .wrap{padding:14px 12px calc(60px + env(safe-area-inset-bottom))}
+  h1{font-size:18px}
+  .sub{font-size:12px;line-height:1.5;margin-bottom:10px}
+  .bar{gap:6px;padding:8px 0}
+  input[type=text]{flex:1 1 100%;min-width:0;font-size:16px;padding:11px 12px}
+  .bar select,.bar button{flex:1 1 44%;padding:11px 8px}
+  .card,.scene{padding:12px}
+  .scene .head{font-size:14.5px}
+  .scene .lab{display:block;min-width:0;margin-bottom:1px}
+  .q{padding:10px}
+  .grid{grid-template-columns:1fr 1fr;gap:8px}
+  .stat{padding:8px 10px}
+  .chip{padding:3px 9px}
+  .opts li{padding:7px 9px}
+  .tabs{gap:5px}
+}
+@media (max-width:380px){
+  .grid{grid-template-columns:1fr}
+}
+</style></head><body><div class="wrap">
+<h1>逻辑填空 · 词条检索</h1>
+<div class="sub">输入一个词或一组近义词（逗号分隔，如：遏制,遏止,抑制）→ 真题场景卡 + 角色分类 + 搭配统计 · 静态版言语 12,303 题</div>
+<div class="bar">
+<input id="q" type="text" placeholder="输入词或词群，回车检索" autofocus>
+<select id="scope"><option value="verbal">仅言语理解（静态版）</option></select>
+<button class="primary" id="go">检索</button>
+<button id="exp" disabled>导出 Markdown</button>
+</div>
+<div class="tabs" id="viewTabs">
+<button class="tab on" data-v="search">检索</button>
+<button class="tab" data-v="lib">我的词库 <b id="libCount">0</b></button>
+</div>
+<div id="out"><div class="empty">等待检索…</div></div>
+<div id="lib" style="display:none"></div>
+</div>
+<script src="shim.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let lastWords=[];
+let DATA=null, FILTER=null;
+function hl(text,words){
+  let t=esc(text);
+  const ws=[...words].sort((a,b)=>b.length-a.length);
+  for(const w of ws){ if(!w) continue; t=t.split(esc(w)).join('<mark>'+esc(w)+'</mark>'); }
+  return t;
+}
+function wl(s){ return '<a class="wlink" data-w="'+esc(s)+'" title="查「'+esc(s)+'」">'+esc(s)+'</a>'; }
+function roleBadge(r){
+  const m={correct:['作为正确项','b-correct'],distractor:['作为干扰项','b-distractor'],stem:['题干命中','b-stem'],material:['材料命中','b-material'],analysis:['仅解析命中','b-analysis']};
+  const x=m[r]||['命中','b-analysis'];
+  return '<span class="badge '+x[1]+'">'+x[0]+'</span>';
+}
+function fmt(t){
+  return esc(t||'').replace(/\[\[([\s\S]*?)\]\]/g,'<mark>$1</mark>');
+}
+function exLine(e,bad){
+  const ks=(e.kaofa||[]).map(k=>'<span class="b-senti">'+esc(k)+'</span>').join('');
+  return '<div class="ex'+(bad?' bad':'')+'">'+fmt(e.text)+' '+ks+
+    '<span class="src">——'+esc(e.paper||'')+'</span></div>';
+}
+function sceneCard(w,s,c,co){
+  const dom=(s.domains.length?s.domains.map(d=>'<span class="chip click" data-w="'+esc(w)+'" data-domain="'+esc(d.name)+'">'+esc(d.name)+' <b>'+d.count+'</b></span>').join(''):'<span class="chip">样本不足，未能归类</span>');
+  const sty=(s.styles.length?s.styles.map(d=>'<span class="chip">'+esc(d.name)+' <b>'+d.count+'</b></span>').join(''):'<span class="chip">无明显标记</span>');
+  const sent='<span class="chip click" data-w="'+esc(w)+'" data-senti="neg">负面 <b>'+s.sentiment.neg+'</b></span>'+
+    '<span class="chip click" data-w="'+esc(w)+'" data-senti="pos">正面 <b>'+s.sentiment.pos+'</b></span>'+
+    '<span class="chip click" data-w="'+esc(w)+'" data-senti="neu">中性 <b>'+s.sentiment.neu+'</b></span>';
+  const kao=(s.kaofa&&s.kaofa.length?s.kaofa.map(d=>'<span class="chip click" data-w="'+esc(w)+'" data-kaofa="'+esc(d.name)+'">'+esc(d.name)+' <b>'+d.count+'</b></span>').join(''):'<span class="chip">—</span>');
+  const left=c.left.map(x=>'<span class="chip">'+wl(x.s)+' <b>'+x.c+'</b></span>').join('')||'—';
+  const right=c.right.map(x=>'<span class="chip">'+wl(x.s)+' <b>'+x.c+'</b></span>').join('')||'—';
+  const lose=s.loseTo.length?s.loseTo.map(x=>'<span class="chip">'+wl(x.s)+' <b>'+x.c+'</b></span>').join(''):'<span class="chip">无</span>';
+  const ctx=(s.contexts&&s.contexts.length)?s.contexts.map(e=>exLine(e,false)).join(''):'<div class="ex">样本不足</div>';
+  const con=(s.contrasts&&s.contrasts.length)?s.contrasts.map(e=>'<div class="ex bad">'+fmt(e.text)+'　<span class="b-senti">本题正解 '+esc(e.answer)+'</span>'+(e.reason?'<span class="src">理由：'+esc(e.reason)+'</span>':'')+'</div>').join(''):'<div class="ex">样本不足</div>';
+  const def=(s.definitions&&s.definitions.length)?s.definitions.map(e=>'<div class="ex">'+esc(e.text)+'<span class="src">——'+esc(e.paper||'')+'</span></div>').join(''):'<div class="ex">解析未给出释义</div>';
+  return '<div class="scene"><div class="head">'+esc(w)+' <span style="color:var(--sub);font-weight:400;font-size:12px">（样本 '+(s.sampled||s.sample||0)+' 题 / 命中 '+(s.hitTotal||s.sample||0)+' 题）</span></div>'+
+    '<div class="row"><span class="lab">主题领域</span>'+dom+'</div>'+
+    '<div class="row"><span class="lab">语体倾向</span>'+sty+'</div>'+
+    '<div class="row"><span class="lab">情感语境</span>'+sent+'</div>'+
+    '<div class="row"><span class="lab">考法分布</span>'+kao+'</div>'+
+    '<div class="row"><span class="lab">左搭配</span>'+left+'</div>'+
+    '<div class="row"><span class="lab">右搭配</span>'+right+'</div>'+
+    '<div class="row"><span class="lab">反例</span>'+lose+'</div>'+
+    '<div class="row"><span class="lab">正确语境</span><span style="color:var(--sub);font-size:12px">（原题回填，高亮处为本题答案）</span></div>'+ctx+
+    '<div class="row"><span class="lab">反例对照</span><span style="color:var(--sub);font-size:12px">（此处用该词会判错）</span></div>'+con+
+    '<div class="row"><span class="lab">释义原话</span></div>'+def+
+    '<div class="note">* 均按真题命中统计与解析原话提取，非人工释义</div></div>';
+}
+function diffCard(diff){
+  let t='<div class="cmpwrap"><table class="cmp"><thead><tr><th>词</th><th>语义侧重</th><th>程度轻重</th><th>感情色彩</th><th>典型搭配</th><th>常败给</th></tr></thead><tbody>';
+  for(const r of diff.rows){
+    const obj=(r.objects||[]).slice(0,3).map(x=>wl(x.s)+' <span class="muted">'+x.c+'</span>').join('、')||'—';
+    const riv=(r.rival||[]).slice(0,2).map(x=>wl(x.s)+' <span class="muted">'+x.c+'</span>').join('、')||'—';
+    t+='<tr><td>'+esc(r.word)+'<div class="muted" style="font-weight:400;font-size:11px">命中'+r.hitTotal+' 样本'+r.sampled+'</div></td>'+
+       '<td>'+(r.focus?esc(r.focus):'<span class="muted">解析未给出</span>')+'</td>'+
+       '<td>'+(r.degree?esc(r.degree):'<span class="muted">未提及</span>')+'</td>'+
+       '<td><span class="tagc">'+esc(r.color)+'</span><div class="muted">'+esc(r.colorStat)+'</div></td>'+
+       '<td>'+obj+'</td><td>'+riv+'</td></tr>';
+  }
+  t+='</tbody></table></div>';
+  return '<div class="card"><h3>近义词差异对照<span class="note" style="margin:0 0 0 8px;font-weight:400">全部取自真题解析与命中统计，不含模型臆断</span></h3>'+t+'</div>';
+}
+function render(d){
+  DATA=d; FILTER=null;
+  lastWords=d.words||[];
+  $('#exp').disabled=!lastWords.length;
+  if(!d.words.length){$('#out').innerHTML='<div class="empty">请输入词条</div>';return;}
+  let h='';
+  h+='<div class="card"><div class="chips">'+(d.words.map(w=>'<span class="chip">'+esc(w)+'</span>').join('')||'')+'</div>';
+  h+='<div class="grid" style="margin-top:12px">';
+  for(const w of d.words){
+    const s=d.stats[w]||{};
+    h+='<div class="stat"><div style="font-weight:700;margin-bottom:6px">'+esc(w)+'</div>'+
+       '<div class="chips"><span class="chip">命中 <b>'+ (s.total||0) +'</b> 题</span>'+
+       '<span class="chip">抽样 <b>'+ (s.sampled||0) +'</b></span>'+
+       '<span class="chip">正确项 <b>'+ (s.asCorrect||0) +'</b></span>'+
+       '<span class="chip">干扰项 <b>'+ (s.asDistractor||0) +'</b></span>'+
+       '<span class="chip">题干 <b>'+ (s.inStem||0) +'</b></span></div></div>';
+  }
+  h+='</div>'+(d.sampled?'<div class="note">* 命中数为题库去重后的真实题量（库内同一题存在多份重复导入）；分类统计基于随机抽样，最多每词 300 题</div>':'')+'</div>';
+
+  if(d.diff&&d.diff.rows.length) h+=diffCard(d.diff);
+
+  h+='<div class="card"><h3>使用场景卡（基于真题统计）</h3>';
+  for(const w of d.words){
+    h+=sceneCard(w, d.scenes[w]||{sample:0,domains:[],styles:[],sentiment:{neg:0,pos:0,neu:0},loseTo:[],examples:[]}, d.collocations[w]||{left:[],right:[]});
+  }
+  h+='</div>';
+
+  if(d.cooccur&&d.cooccur.length){
+    h+='<div class="card"><h3>同组共现（命题人对照考查）</h3><div class="chips">'+
+       d.cooccur.map(c=>'<span class="chip">'+wl(c.a)+' ↔ '+wl(c.b)+'：<b>'+c.count+'</b> 题</span>').join('')+'</div></div>';
+  }
+
+  const roles=['all','correct','distractor','stem','analysis'];
+  const names={all:'全部',correct:'作为正确项',distractor:'作为干扰项',stem:'题干/材料',analysis:'仅解析'};
+  h+='<div class="card" id="qs"><div style="font-weight:700">真题语境（共 '+d.questions.length+' 条）<span class="note" style="margin:0 0 0 8px;font-weight:400">点选项里的词可直接跳查</span></div><div class="tabs" id="tabs">'+
+     roles.map((r,i)=>'<button class="tab'+(i===0?' on':'')+'" data-r="'+r+'">'+names[r]+'</button>').join('')+'</div><div id="qbar"></div><div id="qlist">';
+  h+=qlist(d.questions,'all',d.words,null);
+  h+='</div></div>';
+  $('#out').innerHTML=h;
+  $('#tabs').onclick=e=>{
+    const b=e.target.closest('.tab'); if(!b)return;
+    [...$('#tabs').children].forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    FILTER=null; rerenderList();
+  };
+}
+function filterBanner(f){
+  return '<div class="banner">已筛选：'+esc(f.w)+' · '+esc(f.label)+'　<button id="clr">清除筛选</button></div>';
+}
+function rerenderList(){
+  if(!DATA)return;
+  const on=document.querySelector('#tabs .tab.on');
+  const role=on?on.dataset.r:'all';
+  const bar=document.getElementById('qbar');
+  if(bar) bar.innerHTML=FILTER?filterBanner(FILTER):'';
+  const list=document.getElementById('qlist');
+  if(list) list.innerHTML=qlist(DATA.questions,role,DATA.words,FILTER);
+}
+const SENTI_NAME={neg:'负面语境',pos:'正面语境',neu:'中性语境'};
+$('#out').addEventListener('click',e=>{
+  const link=e.target.closest('.wlink');
+  if(link){ e.preventDefault(); openWord(link.dataset.w); return; }
+  const chip=e.target.closest('.chip[data-senti],.chip[data-domain],.chip[data-kaofa]');
+  if(chip){
+    if(chip.dataset.domain){
+      FILTER={w:chip.dataset.w,type:'domain',value:chip.dataset.domain,label:'主题：'+chip.dataset.domain};
+    }else if(chip.dataset.kaofa){
+      FILTER={w:chip.dataset.w,type:'kaofa',value:chip.dataset.kaofa,label:'考法：'+chip.dataset.kaofa};
+    }else{
+      FILTER={w:chip.dataset.w,type:'senti',value:chip.dataset.senti,label:(SENTI_NAME[chip.dataset.senti]||'语境')};
+    }
+    const first=document.querySelector('#tabs .tab');
+    if(first){ document.querySelectorAll('#tabs .tab').forEach(x=>x.classList.remove('on')); first.classList.add('on'); }
+    rerenderList();
+    const qs=document.getElementById('qs'); if(qs) qs.scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+  if(e.target.id==='clr'){ FILTER=null; rerenderList(); return; }
+  const c=e.target.closest('.q .content');
+  if(c){ const dt=c.parentElement.querySelector('details'); if(dt) dt.open=!dt.open; }
+});
+function qlist(qs,role,words,filter){
+  let arr=qs.filter(q=>role==='all'?true:(role==='stem'?(q.role==='stem'||q.role==='material'):q.role===role));
+  if(filter) arr=arr.filter(q=>q.word===filter.w && (filter.type==='senti' ? q.senti===filter.value : filter.type==='kaofa' ? (q.kaofa||[]).includes(filter.value) : (q.domains||[]).includes(filter.value)));
+  if(!arr.length) return '<div class="empty">该筛选条件下无结果</div>';
+  return arr.map(q=>{
+    const sm={neg:'负面',pos:'正面',neu:'中性'}[q.senti]||'中性';
+    const dtags=(q.domains||[]).slice(0,3).map(d=>'<span class="b-senti">'+esc(d)+'</span>').join('');
+    const ktags=(q.kaofa||[]).slice(0,2).map(d=>'<span class="b-senti">'+esc(d)+'</span>').join('');
+    const opts=q.options.map((o,i)=>{
+      const hit=words.some(w=>o.includes(w));
+      const right=i===q.answerIndex;
+      const L=String.fromCharCode(65+i);
+      const nt=((q.optionNotes||{})[L]||[]).join('；');
+      const body=String(o).split(/([\s、，,；;\/]+)/).map(p=>{
+        if(/^[\u4e00-\u9fa5]{2,8}$/.test(p) && !words.includes(p))
+          return '<a class="wlink" data-w="'+esc(p)+'" href="#w='+encodeURIComponent(p)+'" title="查「'+esc(p)+'」">'+esc(p)+'</a>';
+        return hl(p,words);
+      }).join('');
+      return '<li class="'+(right?'right':'')+(hit?' hit':'')+'"><span class="k">'+L+'.</span>'+body+
+        (nt?'<span class="onote">'+hl(nt,words)+'</span>':'')+'</li>';
+    }).join('');
+    const mat=q.materialSnippet?'<div class="ana">材料：'+hl(q.materialSnippet,words)+'</div>':'';
+    return '<div class="q" id="q-'+q.qid+'"><div class="meta">'+roleBadge(q.role)+'<span class="b-senti">'+sm+'</span>'+dtags+ktags+
+      '<span>'+esc(q.paper||'')+'</span><span>·</span><span>'+esc(q.chapter||'')+'</span></div>'+
+      '<div class="content">'+hl(q.content,words)+'</div>'+
+      '<ul class="opts">'+opts+'</ul>'+(mat||'')+
+      (q.hasAnalysis?'<details data-id="'+q.id+'" data-qid="'+esc(q.qid)+'"><summary>查看完整解析（点题干可展开）</summary><div class="ana" data-full="0">'+hl(q.analysisSnippet,words)+'</div></details>':'')+
+      '</div>';
+  }).join('');
+}
+document.addEventListener('toggle',async e=>{
+  const d=e.target;
+  if(!d || !d.dataset || !d.dataset.id || !d.open) return;
+  const box=d.querySelector('.ana');
+  if(!box || box.dataset.full==='1') return;
+  box.dataset.full='1';
+  box.textContent='载入中…';
+  try{
+    const r=await fetch('/api/analysis?id='+encodeURIComponent(d.dataset.id)+'&qid='+encodeURIComponent(d.dataset.qid||''));
+    const j=await r.json();
+    box.innerHTML=hl(j.analysis||'（本题无解析）',(DATA&&DATA.words)||[]);
+  }catch(err){ box.textContent='载入失败：'+err.message; box.dataset.full='0'; }
+},true);
+let HISTORY=[];
+let VIEW='search';
+function showView(v){
+  VIEW=v;
+  document.querySelectorAll('#viewTabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
+  document.getElementById('out').style.display=(v==='search'?'':'none');
+  document.getElementById('lib').style.display=(v==='lib'?'':'none');
+  if(v==='lib')renderLib();
+}
+async function loadHistory(){
+  try{
+    const r=await fetch('/api/history');
+    const j=await r.json();
+    HISTORY=j.words||[];
+    const c=document.getElementById('libCount'); if(c)c.textContent=HISTORY.length;
+  }catch(e){}
+}
+function fmtDate(t){
+  const d=new Date(t); const p=n=>(n<10?'0':'')+n;
+  return (d.getMonth()+1)+'-'+p(d.getDate());
+}
+function renderLib(){
+  const box=document.getElementById('lib'); if(!box)return;
+  if(!HISTORY.length){box.innerHTML='<div class="empty">还没有查过词，去「检索」里搜一个试试</div>';return;}
+  let h='<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px">'+
+    '<div style="font-weight:700">我的词库 <span style="color:var(--sub);font-weight:400;font-size:12px">共 '+HISTORY.length+' 个词</span></div>'+
+    '<button id="clearAll">清空</button></div>';
+  h+='<div class="wgrid">';
+  for(const it of HISTORY){
+    const s=it.stats||{};
+    const l=(it.left||[]).slice(0,2).map(x=>esc(x.s)+' '+x.c).join(' · ');
+    const r=(it.right||[]).slice(0,2).map(x=>esc(x.s)+' '+x.c).join(' · ');
+    const dom=(it.domains&&it.domains[0])?it.domains[0].name:'';
+    const kao=(it.kaofa&&it.kaofa[0])?it.kaofa[0].name:'';
+    h+='<div class="wcard" data-w="'+esc(it.word)+'">'+
+      '<button class="wdel" data-del="'+esc(it.word)+'" title="删除">×</button>'+
+      '<div class="w">'+esc(it.word)+'</div>'+
+      '<div class="wmeta">命中 <b>'+(s.total||s.unique||0)+'</b> 题 · 正确 '+(s.asCorrect||0)+' · 干扰 '+(s.asDistractor||0)+'</div>'+
+      '<div class="wchips">'+(l?'<span class="chip">左 '+l+'</span>':'')+(r?'<span class="chip">右 '+r+'</span>':'')+'</div>'+
+      '<div class="wfoot"><span>'+esc([dom,kao].filter(Boolean).join(' · ')||'—')+'</span><span>'+fmtDate(it.last)+' · '+(it.count||1)+' 次</span></div>'+
+      '</div>';
+  }
+  h+='</div>';
+  box.innerHTML=h;
+}
+async function openWord(w,push){
+  if(!w)return;
+  const cur=history.state||{};
+  const backTo=(push!==false)?(cur.w||null):(cur.prev||null);
+  showView('search');
+  window.scrollTo(0,0);
+  document.getElementById('q').value=w;
+  document.getElementById('out').innerHTML='<div class="empty">载入「'+esc(w)+'」…</div>';
+  try{
+    const r=await fetch('/api/word?w='+encodeURIComponent(w)+'&scope='+encodeURIComponent(document.getElementById('scope').value));
+    const d=await r.json();
+    render(d);
+    const bar=document.createElement('div');
+    bar.className='backbar';
+    bar.innerHTML='<button id="backLib">← '+(backTo?'返回 '+esc(backTo):'返回词库')+'</button>';
+    document.getElementById('out').insertBefore(bar,document.getElementById('out').firstChild);
+    document.getElementById('backLib').onclick=()=>{
+      if(history.state && history.state.w)history.back();
+      else { if(location.hash)history.replaceState(null,'',location.pathname); showView('lib'); }
+    };
+    if(push!==false && location.hash!=='#w='+encodeURIComponent(w))history.pushState({w:w,prev:backTo},'','#w='+encodeURIComponent(w));
+    await loadHistory();
+  }catch(e){
+    document.getElementById('out').innerHTML='<div class="empty">出错：'+esc(e.message)+'</div>';
+  }
+}
+async function go(){
+  const q=$('#q').value.trim(); if(!q)return;
+  $('#go').disabled=true; $('#out').innerHTML='<div class="empty">检索中…</div>';
+  try{
+    const r=await fetch('/api/search?q='+encodeURIComponent(q)+'&scope='+$('#scope').value);
+    render(await r.json());
+    history.replaceState(null,'','#q='+encodeURIComponent(q));
+    await loadHistory();
+  }catch(e){ $('#out').innerHTML='<div class="empty">出错：'+esc(e.message)+'</div>'; }
+  $('#go').disabled=false;
+}
+$('#go').onclick=go;
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')go();});
+$('#exp').onclick=()=>{location.href='/api/export?q='+encodeURIComponent(lastWords.join(','))+'&scope='+$('#scope').value;};
+document.getElementById('viewTabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab'); if(!b)return;
+  if(b.dataset.v==='lib'){ history.replaceState(null,'',location.pathname); showView('lib'); }
+  else showView('search');
+});
+document.getElementById('lib').addEventListener('click',e=>{
+  const del=e.target.closest('.wdel');
+  if(del){
+    e.stopPropagation();
+    const w=del.dataset.del;
+    if(confirm('从词库删除「'+w+'」？')){
+      fetch('/api/history?w='+encodeURIComponent(w),{method:'DELETE'}).then(()=>{
+        HISTORY=HISTORY.filter(x=>x.word!==w);
+        renderLib();
+        const c=document.getElementById('libCount'); if(c)c.textContent=HISTORY.length;
+      });
+    }
+    return;
+  }
+  if(e.target.id==='clearAll'){
+    if(confirm('清空整个词库？此操作不可恢复')){
+      fetch('/api/history',{method:'DELETE'}).then(()=>{
+        HISTORY=[]; renderLib();
+        const c=document.getElementById('libCount'); if(c)c.textContent=0;
+      });
+    }
+    return;
+  }
+  const card=e.target.closest('.wcard');
+  if(card)openWord(card.dataset.w);
+});
+window.addEventListener('popstate',()=>{
+  const m=location.hash.match(/^#w=(.+)$/);
+  const mq=location.hash.match(/^#q=(.+)$/);
+  if(m)openWord(decodeURIComponent(m[1]),false);
+  else if(mq){ showView('search'); document.getElementById('q').value=decodeURIComponent(mq[1]); go(); }
+  else showView('lib');
+});
+loadHistory().then(()=>{
+  const m=location.hash.match(/^#w=(.+)$/);
+  const mq=location.hash.match(/^#q=(.+)$/);
+  if(m)openWord(decodeURIComponent(m[1]),false);
+  else if(mq){ document.getElementById('q').value=decodeURIComponent(mq[1]); go(); }
+  else go();
+});
+</script></body></html>
