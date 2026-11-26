@@ -786,7 +786,7 @@ function mdReport(data, rawQ) {
     return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
   }
 
-  function readResponse(res, onProgress, total) {
+  function readResponse(res, onProgress, total, onData) {
     if (!res.body || !res.body.getReader) {
       return res.blob().then(decompressBlob);
     }
@@ -799,6 +799,7 @@ function mdReport(data, rawQ) {
         chunks.push(x.value);
         got += x.value.length;
         if (onProgress) onProgress(got, total);
+        if (onData) onData();
         return pump();
       });
     }
@@ -811,13 +812,21 @@ function mdReport(data, rawQ) {
       if (i >= urls.length) return Promise.reject(lastErr || new Error('题库加载失败'));
       var url = urls[i++];
       var ctrl = new AbortController();
-      var timer = setTimeout(function () { ctrl.abort(); }, 45000);
+      var idle = null;
+      function arm() {
+        clearTimeout(idle);
+        idle = setTimeout(function () { ctrl.abort(); }, 45000);
+      }
+      arm();
       return fetch(url, { cache: 'no-store', signal: ctrl.signal }).then(function (res) {
-        clearTimeout(timer);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var total = Number(res.headers.get('content-length') || 0);
-        return readResponse(res, onProgress, total);
+        return readResponse(res, onProgress, total, arm);
+      }).then(function (text) {
+        clearTimeout(idle);
+        return text;
       }).catch(function (e) {
+        clearTimeout(idle);
         return tryNext(e);
       });
     }
@@ -839,23 +848,23 @@ function mdReport(data, rawQ) {
 
     function getChunk(i, attempt) {
       if (fullBlob) return Promise.resolve();
-      if (attempt >= 4) return Promise.reject(new Error('分片下载失败'));
+      if (attempt >= 3) return Promise.reject(new Error('分片下载失败'));
       var host = attempt === 0 ? hosts[0] : (attempt === 1 ? hosts[1] : hosts[2]);
       var start = i * CHUNK;
       var end = Math.min(total - 1, start + CHUNK - 1);
       var ctrl = new AbortController();
-      var timer = setTimeout(function () { ctrl.abort(); }, 45000);
+      var timer = setTimeout(function () { ctrl.abort(); }, 25000);
       return fetch(host, {
         headers: { Range: 'bytes=' + start + '-' + end },
         cache: 'no-store',
         signal: ctrl.signal
       }).then(function (res) {
-        clearTimeout(timer);
         if (res.status === 200) {
-          return res.blob().then(function (b) { fullBlob = b; next = n; });
+          return res.blob().then(function (b) { clearTimeout(timer); fullBlob = b; next = n; });
         }
-        if (res.status !== 206) throw new Error('HTTP ' + res.status);
+        if (res.status !== 206) { clearTimeout(timer); throw new Error('HTTP ' + res.status); }
         return res.arrayBuffer().then(function (buf) {
+          clearTimeout(timer);
           if (buf.byteLength !== end - start + 1) throw new Error('分片长度不符');
           if (fullBlob) return;
           parts[i] = new Uint8Array(buf);
@@ -863,6 +872,7 @@ function mdReport(data, rawQ) {
           onProgress(loaded, total);
         });
       }).catch(function (e) {
+        clearTimeout(timer);
         if (fullBlob) return;
         return new Promise(function (r) { setTimeout(r, 400 * (attempt + 1)); }).then(function () {
           return getChunk(i, attempt + 1);
@@ -934,7 +944,7 @@ function mdReport(data, rawQ) {
       var task;
       if (isGhPages()) {
         task = downloadChunked(version, bytes, progress).catch(function () {
-          return fetchWhole([localUrl(version)], progress);
+          return fetchWhole(cdnHosts(version).concat([localUrl(version)]), progress);
         });
       } else {
         task = fetchWhole([localUrl(version)], progress).catch(function () {
