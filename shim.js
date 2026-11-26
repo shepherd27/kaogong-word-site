@@ -895,7 +895,7 @@ function mdReport(data, rawQ) {
     });
   }
 
-  function initData(text) {
+  function parseRows(text) {
     var d = JSON.parse(text);
     var ch = d.chapters || [];
     var pa = d.papers || [];
@@ -914,6 +914,11 @@ function mdReport(data, rawQ) {
         paperName: pa[r[8]] || ''
       };
     }
+    return rows;
+  }
+
+  function initData(text) {
+    var rows = parseRows(text);
     ROWS = rows;
     BY_ID = new Map();
     for (var j = 0; j < rows.length; j++) BY_ID.set(rows[j].id, rows[j]);
@@ -921,6 +926,43 @@ function mdReport(data, rawQ) {
       return [r.content, JSON.stringify(r.options), r.material, r.analysis].filter(Boolean).join('\n');
     });
     HIT_CACHE.clear();
+  }
+
+  /* ---------- 补充题库（事业单位联考 C 类逻辑填空） ---------- */
+  var SUP_IDB = 'supplement:v1';
+  var SUP_VER = '20261126a';
+  function supUrls() {
+    var local = 'data/supplement.json.gz?v=' + encodeURIComponent(SUP_VER);
+    if (isGhPages()) {
+      return [local].concat(cdnHosts(SUP_VER).map(function (u) {
+        return u.replace('words.json.gz', 'supplement.json.gz');
+      }));
+    }
+    return [local];
+  }
+  function mergeSupplement(text) {
+    if (!text || !ROWS) return 0;
+    var extra = parseRows(text);
+    var added = 0;
+    for (var i = 0; i < extra.length; i++) {
+      var r = extra[i];
+      if (BY_ID.has(r.id)) continue;
+      BY_ID.set(r.id, r);
+      ROWS.push(r);
+      HAYS.push([r.content, JSON.stringify(r.options), r.material, r.analysis].filter(Boolean).join('\n'));
+      added++;
+    }
+    if (added) HIT_CACHE.clear();
+    return added;
+  }
+  function loadSupplement() {
+    return idbGet(SUP_IDB).then(function (cached) {
+      if (cached) { mergeSupplement(cached); return; }
+      return fetchWhole(supUrls(), null).then(function (text) {
+        mergeSupplement(text);
+        idbSet(SUP_IDB, text);
+      }).catch(function () { /* 补充包失败不影响主库 */ });
+    }).catch(function () {});
   }
 
   function loadData() {
@@ -933,8 +975,7 @@ function mdReport(data, rawQ) {
     }).then(function (cached) {
       if (cached) {
         initData(cached);
-        hideLoad();
-        return;
+        return loadSupplement().then(function () { hideLoad(); });
       }
       showLoad('首次加载题库…（约 ' + (bytes ? (bytes / 1048576).toFixed(1) : '6') + 'MB，之后会缓存）', 0);
       var progress = function (got, total) {
@@ -954,8 +995,8 @@ function mdReport(data, rawQ) {
       return task.then(function (text) {
         showLoad('正在解析题库…', 100);
         initData(text);
-        hideLoad();
         idbSet('words:' + version, text);
+        return loadSupplement().then(function () { hideLoad(); });
       });
     });
   }
