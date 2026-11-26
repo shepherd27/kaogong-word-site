@@ -758,14 +758,25 @@ function mdReport(data, rawQ) {
   function getVersion() {
     return fetch('data/version.json', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return (j && j.v) || '1'; })
-      .catch(function () { return '1'; });
+      .catch(function () { return null; });
   }
 
-  function dataUrls(v) {
-    var local = 'data/words.json.gz?v=' + encodeURIComponent(v);
-    var cdn = 'https://cdn.jsdelivr.net/gh/shepherd27/kaogong-word-site@main/data/words.json.gz?v=' + encodeURIComponent(v);
-    return /\.github\.io$/.test(location.hostname) ? [cdn, local] : [local, cdn];
+  function isGhPages() {
+    return /\.github\.io$/.test(location.hostname);
+  }
+  function qs(v) {
+    return '?v=' + encodeURIComponent(v);
+  }
+  function localUrl(v) {
+    return 'data/words.json.gz' + qs(v);
+  }
+  function cdnHosts(v) {
+    var q = qs(v);
+    return [
+      'https://fastly.jsdelivr.net/gh/shepherd27/kaogong-word-site@main/data/words.json.gz' + q,
+      'https://gcore.jsdelivr.net/gh/shepherd27/kaogong-word-site@main/data/words.json.gz' + q,
+      'https://cdn.jsdelivr.net/gh/shepherd27/kaogong-word-site@main/data/words.json.gz' + q
+    ];
   }
 
   function decompressBlob(blob) {
@@ -775,31 +786,102 @@ function mdReport(data, rawQ) {
     return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
   }
 
-  function fetchOne(url, onProgress) {
-    return new Promise(function (resolve, reject) {
+  function readResponse(res, onProgress, total) {
+    if (!res.body || !res.body.getReader) {
+      return res.blob().then(decompressBlob);
+    }
+    var reader = res.body.getReader();
+    var chunks = [];
+    var got = 0;
+    function pump() {
+      return reader.read().then(function (x) {
+        if (x.done) return decompressBlob(new Blob(chunks));
+        chunks.push(x.value);
+        got += x.value.length;
+        if (onProgress) onProgress(got, total);
+        return pump();
+      });
+    }
+    return pump();
+  }
+
+  function fetchWhole(urls, onProgress) {
+    var i = 0;
+    function tryNext(lastErr) {
+      if (i >= urls.length) return Promise.reject(lastErr || new Error('题库加载失败'));
+      var url = urls[i++];
       var ctrl = new AbortController();
-      var timer = setTimeout(function () { ctrl.abort(); }, 10000);
-      fetch(url, { cache: 'no-store', signal: ctrl.signal }).then(function (res) {
+      var timer = setTimeout(function () { ctrl.abort(); }, 45000);
+      return fetch(url, { cache: 'no-store', signal: ctrl.signal }).then(function (res) {
         clearTimeout(timer);
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        if (!res.body || !res.body.getReader) {
-          return res.blob().then(decompressBlob);
-        }
         var total = Number(res.headers.get('content-length') || 0);
-        var reader = res.body.getReader();
-        var chunks = [];
-        var got = 0;
-        function pump() {
-          return reader.read().then(function (x) {
-            if (x.done) return decompressBlob(new Blob(chunks));
-            chunks.push(x.value);
-            got += x.value.length;
-            onProgress(got, total);
-            return pump();
-          });
+        return readResponse(res, onProgress, total);
+      }).catch(function (e) {
+        return tryNext(e);
+      });
+    }
+    return tryNext();
+  }
+
+  /* jsDelivr 大文件直连容易被网络重置，改成 1MB Range 分片 + 多 CDN 重试 */
+  function downloadChunked(v, bytes, onProgress) {
+    var hosts = cdnHosts(v);
+    var CHUNK = 1024 * 1024;
+    var total = Number(bytes) || 0;
+    if (!total) return Promise.reject(new Error('缺少分片大小'));
+    var n = Math.ceil(total / CHUNK);
+    var parts = new Array(n);
+    var loaded = 0;
+    var next = 0;
+    var fullBlob = null;
+    var failed = null;
+
+    function getChunk(i, attempt) {
+      if (fullBlob) return Promise.resolve();
+      if (attempt >= 4) return Promise.reject(new Error('分片下载失败'));
+      var host = attempt === 0 ? hosts[0] : (attempt === 1 ? hosts[1] : hosts[2]);
+      var start = i * CHUNK;
+      var end = Math.min(total - 1, start + CHUNK - 1);
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 45000);
+      return fetch(host, {
+        headers: { Range: 'bytes=' + start + '-' + end },
+        cache: 'no-store',
+        signal: ctrl.signal
+      }).then(function (res) {
+        clearTimeout(timer);
+        if (res.status === 200) {
+          return res.blob().then(function (b) { fullBlob = b; next = n; });
         }
-        return pump();
-      }).then(resolve).catch(reject);
+        if (res.status !== 206) throw new Error('HTTP ' + res.status);
+        return res.arrayBuffer().then(function (buf) {
+          if (buf.byteLength !== end - start + 1) throw new Error('分片长度不符');
+          if (fullBlob) return;
+          parts[i] = new Uint8Array(buf);
+          loaded += buf.byteLength;
+          onProgress(loaded, total);
+        });
+      }).catch(function (e) {
+        if (fullBlob) return;
+        return new Promise(function (r) { setTimeout(r, 400 * (attempt + 1)); }).then(function () {
+          return getChunk(i, attempt + 1);
+        });
+      });
+    }
+
+    function worker() {
+      if (next >= n || fullBlob) return Promise.resolve();
+      var i = next++;
+      return getChunk(i, 0).then(worker).catch(function (e) { failed = failed || e; });
+    }
+
+    var workers = [];
+    for (var w = 0; w < 4; w++) workers.push(worker());
+    return Promise.all(workers).then(function () {
+      if (fullBlob) return decompressBlob(fullBlob);
+      if (failed) throw failed;
+      return decompressBlob(new Blob(parts));
     });
   }
 
@@ -833,34 +915,38 @@ function mdReport(data, rawQ) {
 
   function loadData() {
     var version = '1';
-    return getVersion().then(function (v) {
-      version = v;
-      return idbGet('words:' + v);
+    var bytes = 0;
+    return getVersion().then(function (j) {
+      version = (j && j.v) || '1';
+      bytes = Number(j && j.bytes) || 0;
+      return idbGet('words:' + version);
     }).then(function (cached) {
       if (cached) {
         initData(cached);
         hideLoad();
         return;
       }
-      var urls = dataUrls(version);
-      var idx = 0;
-      function tryNext(lastErr) {
-        if (idx >= urls.length) throw lastErr || new Error('题库加载失败');
-        var u = urls[idx++];
-        showLoad('首次加载题库…（约 5.8MB，之后会缓存）', 0);
-        return fetchOne(u, function (got, total) {
-          var pct = total ? Math.round(got / total * 100) : 0;
-          showLoad('首次加载题库 ' + (got / 1048576).toFixed(1) + (total ? ' / ' + (total / 1048576).toFixed(1) : '') + ' MB（' + pct + '%）', pct);
-        }).then(function (text) {
-          showLoad('正在解析题库…', 100);
-          initData(text);
-          hideLoad();
-          idbSet('words:' + version, text);
-        }).catch(function (e) {
-          return tryNext(e);
+      showLoad('首次加载题库…（约 ' + (bytes ? (bytes / 1048576).toFixed(1) : '6') + 'MB，之后会缓存）', 0);
+      var progress = function (got, total) {
+        var pct = total ? Math.round(got / total * 100) : 0;
+        showLoad('首次加载题库 ' + (got / 1048576).toFixed(1) + (total ? ' / ' + (total / 1048576).toFixed(1) : '') + ' MB（' + pct + '%）', pct);
+      };
+      var task;
+      if (isGhPages()) {
+        task = downloadChunked(version, bytes, progress).catch(function () {
+          return fetchWhole([localUrl(version)], progress);
+        });
+      } else {
+        task = fetchWhole([localUrl(version)], progress).catch(function () {
+          return downloadChunked(version, bytes, progress);
         });
       }
-      return tryNext();
+      return task.then(function (text) {
+        showLoad('正在解析题库…', 100);
+        initData(text);
+        hideLoad();
+        idbSet('words:' + version, text);
+      });
     });
   }
 
@@ -974,7 +1060,9 @@ function mdReport(data, rawQ) {
     ensureData: ensureData,
     search: function (q) { return runSearch(q, 'verbal'); },
     md: function (q) { return mdReport(runSearch(q, 'verbal'), q); },
-    rows: function () { return ROWS; }
+    rows: function () { return ROWS; },
+    chunked: downloadChunked,
+    whole: fetchWhole
   };
 
   function preload() {
