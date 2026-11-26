@@ -780,10 +780,17 @@ function mdReport(data, rawQ) {
   }
 
   function decompressBlob(blob) {
-    if (typeof DecompressionStream === 'undefined') {
+    if (typeof DecompressionStream !== 'undefined') {
+      return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    }
+    // 老浏览器（如 iOS Safari < 16.4）用 pako 后备解压
+    if (typeof pako === 'undefined') {
       return Promise.reject(new Error('当前浏览器不支持 gzip 解压，请升级浏览器'));
     }
-    return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    return blob.arrayBuffer().then(function (buf) {
+      var out = pako.ungzip(new Uint8Array(buf));
+      return new TextDecoder('utf-8').decode(out);
+    });
   }
 
   function readResponse(res, onProgress, total, onData) {
